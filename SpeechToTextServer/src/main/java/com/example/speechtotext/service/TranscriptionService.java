@@ -19,9 +19,7 @@ import com.example.speechtotext.dto.OpenAIResponse;
 
 import java.util.Map;
 import java.util.concurrent.atomic.DoubleAdder;
-
 import org.springframework.core.ParameterizedTypeReference;
-
 
 
 @Service
@@ -29,6 +27,8 @@ public class TranscriptionService {
 	
 	private WebClient webClient;
 	private TokenTracker tokenTracker;
+	// Track total subtitle audio processed in seconds.
+	private final DoubleAdder subtitleUsage = new DoubleAdder();
 	
 	public TranscriptionService(
 			//Let Spring construct RestClient
@@ -125,5 +125,48 @@ public class TranscriptionService {
 	                )
 	        ); 
 		}
+	}
+	// Get subtitle text and timestamps from Whisper.
+	public Mono<Map<String, Object>> transcribeSubtitles(MultipartFile file) {
+	    try {
+	        ByteArrayResource audio = new ByteArrayResource(file.getBytes()) {
+	            @Override
+	            public String getFilename() {
+	                return file.getOriginalFilename() != null
+	                        ? file.getOriginalFilename()
+	                        : "audio.mp3";
+	            }
+	        };
+
+	        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+
+	        body.add("file", audio);
+	        body.add("model", "whisper-1");
+	        body.add("response_format", "verbose_json");
+	        body.add("timestamp_granularities[]", "word");
+	        body.add("timestamp_granularities[]", "segment");
+
+	        // Request the subtitle data asynchronously.
+	        return webClient.post()
+	                .uri("/v1/audio/transcriptions")
+	                .contentType(MediaType.MULTIPART_FORM_DATA)
+	                .bodyValue(body)
+	                .retrieve()
+	                .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+	                .doOnNext(response -> {
+	                    // Count audio duration after a successful request.
+	                    if (response.get("duration") instanceof Number duration) {
+	                        subtitleUsage.add(duration.doubleValue());
+	                    }
+	                });
+
+	    } catch (IOException e) {
+	        return Mono.error(e);
+	    }
+	}
+
+	// Return total subtitle transcription usage.
+	public double getSubtitleUsage() {
+	    return subtitleUsage.sum();
 	}
 }
