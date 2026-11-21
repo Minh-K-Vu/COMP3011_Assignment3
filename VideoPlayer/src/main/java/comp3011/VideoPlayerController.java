@@ -17,6 +17,8 @@ import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import java.util.List;
+import javafx.application.Platform;
 
 /**
  * The controller part of the video player model-view-controller architecture.
@@ -29,12 +31,20 @@ import javafx.scene.input.KeyEvent;
 public class VideoPlayerController {
     private final VideoPlayerModel model;
     private final VideoPlayerView view;
+    // Handles communication with our Spring Boot subtitle API.
+    private final SubtitleService subtitleService = new SubtitleService();
+    // Subtitles returned by Whisper.
+    private List<SubtitleService.SubtitleSegment> subtitles = List.of();
+    // Whether subtitles start enabled.
+    private final boolean subtitlesEnabled;
     private final BiConsumer<Integer, Integer> videoSizeChangedHandler;
     // Add frame processors to constructor
     public VideoPlayerController(
             boolean audioEnabled,
             CreateFrameProcessor createFrameProcessor,
+            boolean subtitlesEnabled,
             BiConsumer<Integer, Integer> videoSizeChangedHandler) {
+        this.subtitlesEnabled = subtitlesEnabled;
         this.view = new VideoPlayerView();
         this.videoSizeChangedHandler = videoSizeChangedHandler;
         model = new VideoPlayerModel(
@@ -85,7 +95,28 @@ public class VideoPlayerController {
 
     public void play(File file) {
         view.setPlaybackControlsDisabled(false);
+        // Start video playback immediately.
         model.play(file);
+        // Only generate subtitles if -S was requested.
+        if (!subtitlesEnabled) {
+            return;
+        }
+        view.setStatus("Generating subtitles...");
+        // Extract audio and call Whisper in the background.
+        subtitleService.transcribeAsync(file).whenComplete((result, error) -> {
+                    // JavaFX UI updates must run on its application thread.
+                    Platform.runLater(() -> {
+                        if (error != null) {
+                            view.setStatus("Subtitles unavailable");
+                            System.err.println("Subtitle error: " + error.getMessage());
+                            return;
+                        }
+                        // Store subtitles for playback and seeking.
+                        subtitles = result;
+                        view.setStatus("Subtitles loaded: " + result.size());
+                        System.out.println("Loaded " + result.size() + " subtitles");
+                    });
+                });
     }
 
     public void shutdown() {
@@ -123,22 +154,23 @@ public class VideoPlayerController {
 
     private void onFrameReady(Image image) {
         view.setImage(image);
-
-        // Grab current playback time.
-        double time = model.getCurrentPlaybackSeconds();
-
-        // Use whisper's return to display subtitle
-        String subtitle = "";
-
-        if (time >= 6.78 && time < 11.56) {
-            subtitle = "This summer, between honor and dishonor,";
-        } else if (time >= 12.84 && time < 14.86) {
-            subtitle = "between family and enemies.";
+        // Clear subtitles when the video frame is removed.
+        if (image == null || !subtitlesEnabled) {
+            view.setSubtitleText("");
+            return;
         }
-
-        // display subtitle 
-        view.setSubtitleText(subtitle);
-
+        // Current playback position in seconds.
+        double time = model.getCurrentPlaybackSeconds();
+        String subtitleText = "";
+        // Find the subtitle that matches the current time.
+        for (SubtitleService.SubtitleSegment segment : subtitles) {
+            if (time >= segment.start() && time < segment.end()) {
+                subtitleText = segment.text();
+                break;
+            }
+        }
+        // Show the matching subtitle, or hide it if none matches.
+        view.setSubtitleText(subtitleText);
     }
 
     private void onStatusChanged(String status) {
