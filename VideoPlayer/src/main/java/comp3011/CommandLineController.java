@@ -116,6 +116,10 @@ public class CommandLineController {
     
     // Function to handle frame processor option based on argument
     private String getFrameProcOption(String arg) {
+    	// Assignment 3: subtitle frame processor.
+    	if ("-S".equals(arg) || "--subtitle-frames".equals(arg)) {
+    	    return "S";
+    	}
         if ("-n".equals(arg) || "--number-frames".equals(arg)) {
             return "n";
         }
@@ -151,6 +155,10 @@ public class CommandLineController {
         }
         return null;
     }
+	// Function to see if subtitles was selected
+    public boolean isSubtitleRequested() {
+        return frameProcessorOptions.contains("S");
+    }
     // Function to handle stacked arguments
     private boolean handleStackedFrameProcOptions(String arg) {
     	//check if stacked argument is valid
@@ -161,7 +169,7 @@ public class CommandLineController {
     	String options = arg.substring(1);
     	// go through the letters in the arg to see if they are valid
     	for (char option : options.toCharArray()) {
-    	    if ("nsfwyvdjmbp".indexOf(option) == -1) {
+    	    if ("nsfwyvdjmbpS".indexOf(option) == -1) {
     	        return false;
     	    }
     	}
@@ -207,6 +215,7 @@ public class CommandLineController {
         System.out.println("  -m, --mottle-frames    Add cloudy emulsion mottling");
         System.out.println("  -b, --bleed-frames     Bleed light into frames");
         System.out.println("  -p, --pepper-frames    Pepper frames with dark spots/blotches");
+        System.out.println("  -S, --subtitle-frames  Add speech-to-text subtitles");
         System.out.println();
         System.out.println("Frame processors are applied in command-line order and may be repeated.");
         System.out.println("Example: -nssnfwyvdjmbp numbers, scratches twice, numbers again, flickers,");
