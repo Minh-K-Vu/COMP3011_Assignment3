@@ -86,8 +86,6 @@ public class VideoPlayerController {
     public void play(File file) {
         view.setPlaybackControlsDisabled(false);
         model.play(file);
-        
-        view.setSubtitleText("SUBTITLES");
     }
 
     public void shutdown() {
@@ -125,6 +123,22 @@ public class VideoPlayerController {
 
     private void onFrameReady(Image image) {
         view.setImage(image);
+
+        // Grab current playback time.
+        double time = model.getCurrentPlaybackSeconds();
+
+        // Use whisper's return to display subtitle
+        String subtitle = "";
+
+        if (time >= 6.78 && time < 11.56) {
+            subtitle = "This summer, between honor and dishonor,";
+        } else if (time >= 12.84 && time < 14.86) {
+            subtitle = "between family and enemies.";
+        }
+
+        // display subtitle 
+        view.setSubtitleText(subtitle);
+
     }
 
     private void onStatusChanged(String status) {

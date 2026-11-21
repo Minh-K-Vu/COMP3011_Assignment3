@@ -812,4 +812,8 @@ public class VideoPlayerModel {
             return offset >= samples.length;
         }
     }
+    // Function to get timestamps in seconds
+    public double getCurrentPlaybackSeconds() {
+        return currentTimestampUs / 1_000_000.0;
+    }
 }
