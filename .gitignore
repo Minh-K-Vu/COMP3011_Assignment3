@@ -1,0 +1,18 @@
+# Maven
+target/
+*.class
+
+# IDE
+.settings/
+.project
+.classpath
+.vscode/
+.metadata/
+
+# macOS
+.DS_Store
+
+# API keys
+.env
+key.txt
+**/key.txt
