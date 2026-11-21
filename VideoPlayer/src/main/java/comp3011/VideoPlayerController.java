@@ -86,6 +86,8 @@ public class VideoPlayerController {
     public void play(File file) {
         view.setPlaybackControlsDisabled(false);
         model.play(file);
+        
+        view.setSubtitleText("SUBTITLES");
     }
 
     public void shutdown() {

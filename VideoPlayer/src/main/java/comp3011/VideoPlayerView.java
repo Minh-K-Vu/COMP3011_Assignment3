@@ -46,6 +46,8 @@ public class VideoPlayerView {
     private static final int ICON_SIZE = 28;
 
     private final ImageView imageView = new ImageView();
+    // Add text over the video
+    private final Label subtitleLabel = new Label();
     private final Label statusLabel = new Label("No video loaded");
     private final Label tooltipLabel = new Label();
     private final Pane tooltipLayer = new Pane();
@@ -62,8 +64,27 @@ public class VideoPlayerView {
         imageView.setPreserveRatio(true);
         imageView.setSmooth(false);
 
-        videoPane = new StackPane(imageView);
+        // Put the subtitles on top of the video image.
+        videoPane = new StackPane(imageView, subtitleLabel);
         videoPane.setStyle("-fx-background-color: black;");
+
+        // Subtitle position near the bottom
+        StackPane.setAlignment(subtitleLabel, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(subtitleLabel, new Insets(0, 20, 30, 20));
+
+        // Subtitle font size, color, etc...
+        subtitleLabel.setStyle(
+                "-fx-font-family: Arial;" +
+                "-fx-font-size: 24px;" +
+                "-fx-text-fill: white;" +
+                "-fx-effect: dropshadow(gaussian, black, 3, 1, 0, 0);"
+        );
+
+        subtitleLabel.setWrapText(true);
+        subtitleLabel.setMaxWidth(750);
+        subtitleLabel.setAlignment(Pos.CENTER);
+        subtitleLabel.setMouseTransparent(true);
+        subtitleLabel.setVisible(false);
         videoPane.setMinSize(0, 0);
         videoPane.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
         imageView.fitWidthProperty().bind(videoPane.widthProperty());
@@ -134,7 +155,13 @@ public class VideoPlayerView {
     public void setImage(Image image) {
         imageView.setImage(image);
     }
-
+    
+    // Function to set subtitle text
+    public void setSubtitleText(String text) {
+        subtitleLabel.setText(text);
+        subtitleLabel.setVisible(text != null && !text.isBlank());
+    }
+    
     public void setVideoDisplaySize(double width, double height) {
         videoPane.setPrefSize(width, height);
     }
