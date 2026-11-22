@@ -35,8 +35,12 @@ public class VideoPlayerController {
     private final SubtitleService subtitleService = new SubtitleService();
     // Subtitles returned by Whisper.
     private List<SubtitleService.SubtitleSegment> subtitles = List.of();
-    // Whether subtitles start enabled.
-    private final boolean subtitlesEnabled;
+    // Subtitles
+    private boolean subtitlesEnabled;
+    // Remember the current video so subtitles can be requested later
+    private File currentVideoFile;
+    // Prevent repeated transcription requests for the same video
+    private boolean subtitleRequestStarted;
     private final BiConsumer<Integer, Integer> videoSizeChangedHandler;
     // Add frame processors to constructor
     public VideoPlayerController(
@@ -62,6 +66,8 @@ public class VideoPlayerController {
         view.getForwardFiveButton().setOnAction(_ -> forwardFiveSeconds());
         view.getStopButton().setOnAction(_ -> stopAndExit());
         view.getAudioButton().setOnAction(_ -> toggleAudioOutput());
+        view.getSubtitleButton().setOnAction(_ -> toggleSubtitles());
+        view.showSubtitlesEnabled(subtitlesEnabled);
         view.showAudioEnabled(model.isAudioOutputEnabled());
     }
 
@@ -85,6 +91,9 @@ public class VideoPlayerController {
             } else if (event.getCode() == KeyCode.A) {
                 toggleAudioOutput();
                 event.consume();
+            } else if (event.getCode() == KeyCode.S) {
+                toggleSubtitles();
+                event.consume();
             }
         });
     }
@@ -95,23 +104,37 @@ public class VideoPlayerController {
 
     public void play(File file) {
         view.setPlaybackControlsDisabled(false);
-        // Start video playback immediately.
+
+        currentVideoFile = file;
+        subtitleRequestStarted = false;
+        subtitles = List.of();
+
+        // Start playing immediately
         model.play(file);
-        // Only generate subtitles if -S was requested.
-        if (!subtitlesEnabled) {
-            return;
+
+        // -S requests subtitles when playback starts
+        if (subtitlesEnabled) {
+            loadSubtitles(file);
         }
+    }
+    
+    // Request subtitles in the background.
+    private void loadSubtitles(File file) {
+        subtitleRequestStarted = true;
         view.setStatus("Generating subtitles...");
-        // Extract audio and call Whisper in the background.
-        subtitleService.transcribeAsync(file).whenComplete((result, error) -> {
-                    // JavaFX UI updates must run on its application thread.
+        subtitleService.transcribeAsync(file)
+                .whenComplete((result, error) -> {
                     Platform.runLater(() -> {
+                        // Ignore results if another video has been loaded.
+                        if (currentVideoFile != file) {
+                            return;
+                        }
                         if (error != null) {
+                            subtitleRequestStarted = false;
                             view.setStatus("Subtitles unavailable");
                             System.err.println("Subtitle error: " + error.getMessage());
                             return;
                         }
-                        // Store subtitles for playback and seeking.
                         subtitles = result;
                         view.setStatus("Subtitles loaded: " + result.size());
                         System.out.println("Loaded " + result.size() + " subtitles");
@@ -142,7 +165,22 @@ public class VideoPlayerController {
     private void toggleAudioOutput() {
         model.toggleAudioOutput();
     }
+    
+    // Turn subtitles on or off
+    private void toggleSubtitles() {
+        subtitlesEnabled = !subtitlesEnabled;
 
+        view.showSubtitlesEnabled(subtitlesEnabled);
+
+        if (!subtitlesEnabled) {
+            // Remove subtitle text immediately.
+            view.setSubtitleText("");
+        } else if (!subtitleRequestStarted && currentVideoFile != null) {
+            // Generate subtitles if the video started without -S.
+            loadSubtitles(currentVideoFile);
+        }
+    }
+    
     private void stopAndExit() {
         model.stopPlayback();
         javafx.application.Platform.exit();
