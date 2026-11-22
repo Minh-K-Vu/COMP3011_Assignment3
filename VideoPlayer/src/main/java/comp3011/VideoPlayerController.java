@@ -49,6 +49,9 @@ public class VideoPlayerController {
             boolean subtitlesEnabled,
             BiConsumer<Integer, Integer> videoSizeChangedHandler) {
         this.subtitlesEnabled = subtitlesEnabled;
+        // Set the initial subtitle state.
+        FrameSubtitler.setEnabled(subtitlesEnabled);
+        FrameSubtitler.setSubtitles(List.of());
         this.view = new VideoPlayerView();
         this.videoSizeChangedHandler = videoSizeChangedHandler;
         model = new VideoPlayerModel(
@@ -108,7 +111,7 @@ public class VideoPlayerController {
         currentVideoFile = file;
         subtitleRequestStarted = false;
         subtitles = List.of();
-
+        FrameSubtitler.setSubtitles(List.of());
         // Start playing immediately
         model.play(file);
 
@@ -135,7 +138,10 @@ public class VideoPlayerController {
                             System.err.println("Subtitle error: " + error.getMessage());
                             return;
                         }
+                        // Store the subtitles for the frame-processing threads.
                         subtitles = result;
+                        FrameSubtitler.setSubtitles(result);
+
                         view.setStatus("Subtitles loaded: " + result.size());
                         System.out.println("Loaded " + result.size() + " subtitles");
                     });
@@ -169,7 +175,7 @@ public class VideoPlayerController {
     // Turn subtitles on or off
     private void toggleSubtitles() {
         subtitlesEnabled = !subtitlesEnabled;
-
+        FrameSubtitler.setEnabled(subtitlesEnabled);
         view.showSubtitlesEnabled(subtitlesEnabled);
 
         if (!subtitlesEnabled) {
@@ -191,26 +197,9 @@ public class VideoPlayerController {
     }
 
     private void onFrameReady(Image image) {
+        // The frame processor now draws subtitles into the video.
         view.setImage(image);
-        // Clear subtitles when the video frame is removed.
-        if (image == null || !subtitlesEnabled) {
-            view.setSubtitleText("");
-            return;
-        }
-        // Current playback position in seconds.
-        double time = model.getCurrentPlaybackSeconds();
-        String subtitleText = "";
-        // Find the subtitle that matches the current time.
-        for (SubtitleService.SubtitleSegment segment : subtitles) {
-            if (time >= segment.start() && time < segment.end()) {
-                subtitleText = segment.text();
-                break;
-            }
-        }
-        // Show the matching subtitle, or hide it if none matches.
-        view.setSubtitleText(
-                SubtitleFormat.format(subtitleText)
-        );
+        view.setSubtitleText("");
     }
 
     private void onStatusChanged(String status) {

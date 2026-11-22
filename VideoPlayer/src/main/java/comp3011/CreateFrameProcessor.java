@@ -77,6 +77,8 @@ public class CreateFrameProcessor {
                 break;
             }
         }
+        processors.add(new FrameSubtitler());
+
         return processors;
 	}
 }
