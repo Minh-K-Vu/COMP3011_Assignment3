@@ -208,7 +208,9 @@ public class VideoPlayerController {
             }
         }
         // Show the matching subtitle, or hide it if none matches.
-        view.setSubtitleText(subtitleText);
+        view.setSubtitleText(
+                SubtitleFormat.format(subtitleText)
+        );
     }
 
     private void onStatusChanged(String status) {

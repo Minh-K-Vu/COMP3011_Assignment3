@@ -77,6 +77,7 @@ public class VideoPlayerView {
         subtitleLabel.setStyle(
                 "-fx-font-family: Arial;" +
                 "-fx-font-size: 24px;" +
+                "-fx-font-weight: bold;" +
                 "-fx-text-fill: white;" +
                 "-fx-effect: dropshadow(gaussian, black, 3, 1, 0, 0);"
         );
