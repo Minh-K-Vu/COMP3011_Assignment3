@@ -15,6 +15,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
+
+import org.bytedeco.javacv.FFmpegFrameGrabber;
+import org.bytedeco.javacv.FFmpegFrameRecorder;
+import org.bytedeco.javacv.Frame;
+import static org.bytedeco.ffmpeg.global.avcodec.AV_CODEC_ID_MP3;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -45,26 +50,43 @@ public class SubtitleService {
                 audioFile = Files.createTempFile(
                         "subtitle-audio-", ".mp3");
 
-                // Extract audio from the original video.
-                Process process = new ProcessBuilder(
-                        "ffmpeg",
-                        "-y",
-                        "-i", videoFile.getAbsolutePath(),
-                        "-vn",
-                        "-ac", "1",
-                        "-ar", "16000",
-                        "-b:a", "32k",
-                        "-t", "600",
-                        audioFile.toString())
-                        .redirectError(ProcessBuilder.Redirect.DISCARD)
-                        .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                        .start();
+                // Extract audio using JavaCV instead of an external ffmpeg command.
+                // This works on machines where the ffmpeg executable is not installed.
+                try (FFmpegFrameGrabber grabber =
+                         new FFmpegFrameGrabber(videoFile);
+                		FFmpegFrameRecorder recorder =
+                         new FFmpegFrameRecorder(audioFile.toString(), 1)) {
 
-                if (process.waitFor() != 0) {
-                    throw new RuntimeException(
-                            "Could not extract video audio");
+                 grabber.start();
+
+                 // Encode the extracted audio as a small mono MP3 file.
+                 recorder.setFormat("mp3");
+                 recorder.setAudioCodec(AV_CODEC_ID_MP3);
+                 recorder.setSampleRate(16000);
+                 recorder.setAudioChannels(1);
+                 recorder.setAudioBitrate(32000);
+                 recorder.start();
+
+                 Frame audioFrame;
+
+                 // Extract up to 10 minutes of audio.
+                 while ((audioFrame = grabber.grabSamples()) != null) {
+
+                     if (grabber.getTimestamp() > 600_000_000L) {
+                         break;
+                     }
+
+                     if (audioFrame.samples != null) {
+                         recorder.recordSamples(
+                                 grabber.getSampleRate(),
+                                 grabber.getAudioChannels(),
+                                 audioFrame.samples);
+                     }
+                 }
+
+                 recorder.stop();
+                 grabber.stop();
                 }
-
                 // Build a multipart upload containing the MP3.
                 String boundary = "SubtitleBoundary" + System.nanoTime();
 

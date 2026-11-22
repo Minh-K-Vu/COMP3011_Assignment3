@@ -136,6 +136,7 @@ public class VideoPlayerController {
                             subtitleRequestStarted = false;
                             view.setStatus("Subtitles unavailable");
                             System.err.println("Subtitle error: " + error.getMessage());
+                            error.printStackTrace();
                             return;
                         }
                         // Store the subtitles for the frame-processing threads.
