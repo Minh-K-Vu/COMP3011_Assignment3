@@ -1,3 +1,4 @@
+
 package com.example.speechtotext.controller;
 
 import java.util.Map;
@@ -23,10 +24,15 @@ public class SubtitleController {
     }
 
     // Receive audio and return subtitles with timestamps.
-    @PostMapping(value = "/api/v1/subtitles",
+    @PostMapping(
+            value = "/api/v1/subtitles",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<Map<String, Object>> subtitles(
             @RequestPart("file") MultipartFile file) {
+
+        // Log when the server receives an audio upload.
+        System.err.println(
+                "Subtitle POST received, bytes: " + file.getSize());
 
         return transcriptionService.transcribeSubtitles(file);
     }
@@ -34,6 +40,8 @@ public class SubtitleController {
     // Return the total transcription duration in seconds.
     @GetMapping("/api/v1/global/usage")
     public Map<String, Double> usage() {
-        return Map.of("usage", transcriptionService.getSubtitleUsage());
+        return Map.of(
+                "usage",
+                transcriptionService.getSubtitleUsage());
     }
 }

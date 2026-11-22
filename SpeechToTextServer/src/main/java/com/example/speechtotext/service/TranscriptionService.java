@@ -20,7 +20,8 @@ import com.example.speechtotext.dto.OpenAIResponse;
 import java.util.Map;
 import java.util.concurrent.atomic.DoubleAdder;
 import org.springframework.core.ParameterizedTypeReference;
-
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import reactor.netty.http.client.HttpClient;
 
 @Service
 public class TranscriptionService {
@@ -46,13 +47,21 @@ public class TranscriptionService {
 		//all requests will have header:
 		//Authorization, Bearer + apiKey
 		
-        webClient = restClientBuilder
-                .baseUrl(baseUrl)
-                .defaultHeader(
-                        "Authorization",
-                        "Bearer " + apiKey
-                )
-                .build();
+		HttpClient httpClient = HttpClient.create()
+		        .proxyWithSystemProperties();
+
+		webClient = restClientBuilder
+		        .clientConnector(new ReactorClientHttpConnector(httpClient))
+		        .baseUrl(baseUrl)
+		        .defaultHeader("Authorization", "Bearer " + apiKey)
+		        .build();
+
+		// Log configuration status, never the API key itself.
+		System.err.println("HTTPS proxy configured: "
+		        + (System.getProperty("https.proxyHost") != null));
+
+		System.err.println("OpenAI key configured: "
+		        + (apiKey != null && !apiKey.isBlank()));
        
     }
 	
